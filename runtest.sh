@@ -45,25 +45,26 @@ function inode_ratio_test()
 {
 	factor=10
 	umount $TEST_DIR >&/dev/null
-	mkfs.lustre --fsname lustre --mgs --reformat $TEST_DEV  >&/dev/null || __error "mkfs.lustre failed"
+	mkfs.lustre --fsname lustre --mdt --reformat --mgsnode=172.16.102.129@tcp $TEST_DEV \
+			 >&/dev/null || __error "mkfs.lustre failed"
 	# get total inode numbers
 	total_inodes=`dumpe2fs $TEST_DEV -h 2> /dev/null | grep "Free inodes" | awk '{print $3}'`
 	increment=$(($total_inodes/10))
+	echo $total_inodes
+	this_number_test=$(($increment/$THREAD_NR))
 
 	cnt=0
 	while [ $cnt -lt 9 ]
 	do
 		let filled_number=$(($increment * $cnt))
 		umount $TEST_DIR >&/dev/null
-		mkfs.lustre --fsname lustre --mgs --reformat $TEST_DEV >&/dev/null || __error "mkfs.lustre failed"
 		mount -t ldiskfs $TEST_DEV $TEST_DIR || __error "mount.ldiskfs failed"
 		echo $filled_number
-		refill_inodes $filled_number
+		#refill_inodes $filled_number
 
-		mkdir $TEST_DIR/mdtest
+		mkdir $TEST_DIR/mdtest""$cnt
 		echo "Mdtest with used inode: $(($cnt * 10))%:"
-		this_number_test=$(($increment/$THREAD_NR))
-		mpirun --allow-run-as-root -np $THREAD_NR $MDTEST -d $TEST_DIR/mdtest -n $this_number_test -u -i 3 || exit 1
+		mpirun --allow-run-as-root -np $THREAD_NR $MDTEST -d $TEST_DIR/mdtest""$cnt -n $this_number_test -u -i 3 || exit 1
 		((cnt++))
 	done
 }
