@@ -14,6 +14,7 @@ __error()
 [ ! -b $TEST_DEV ] && __error "please set a valid TEST_DEV"
 [ -z $MDTEST ] && __error "please set valid path for MDTEST"
 [ ! -f $MDTEST ] && __error "please set valid path for MDTEST"
+[ ! -f "./create_file" ] && __error "please run make firstly"
 
 # $1 this is inode number
 function refill_inodes()
@@ -49,7 +50,7 @@ function inode_ratio_test()
 	total_inodes=`dumpe2fs $TEST_DEV -h 2> /dev/null | grep "Free inodes" | awk '{print $3}'`
 	increment=$(($total_inodes/10))
 
-	cnt=1
+	cnt=0
 	while [ $cnt -lt 9 ]
 	do
 		let filled_number=$(($increment * $cnt))
