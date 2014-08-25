@@ -41,6 +41,12 @@ function refill_inodes()
 	
 }
 
+function remount_fs()
+{
+	umount $TEST_DIR >&/dev/null
+	mount -t ldiskfs $TEST_DEV $TEST_DIR || __error "mount.ldiskfs failed"
+}
+
 function inode_ratio_test()
 {
 	factor=10
@@ -51,20 +57,19 @@ function inode_ratio_test()
 	total_inodes=`dumpe2fs $TEST_DEV -h 2> /dev/null | grep "Free inodes" | awk '{print $3}'`
 	increment=$(($total_inodes/10))
 	echo $total_inodes
-	this_number_test=$(($increment/$THREAD_NR))
+	this_number_test=$(($increment/$(($THREAD_NR*$NUMBER_TEST*2))))
 
 	cnt=0
 	while [ $cnt -lt 9 ]
 	do
 		let filled_number=$(($increment * $cnt))
-		umount $TEST_DIR >&/dev/null
-		mount -t ldiskfs $TEST_DEV $TEST_DIR || __error "mount.ldiskfs failed"
+		remount_fs
 		echo $filled_number
 		#refill_inodes $filled_number
 
 		mkdir $TEST_DIR/mdtest""$cnt
 		echo "Mdtest with used inode: $(($cnt * 10))%:"
-		mpirun --allow-run-as-root -np $THREAD_NR $MDTEST -d $TEST_DIR/mdtest""$cnt -n $this_number_test -u -i 3 || exit 1
+		mpirun --allow-run-as-root  -np $THREAD_NR $MDTEST -d $TEST_DIR/mdtest""$cnt -n $this_number_test -C -i $NUMBER_TEST || exit 1
 		((cnt++))
 	done
 }
