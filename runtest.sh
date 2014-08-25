@@ -44,15 +44,24 @@ function refill_inodes()
 function remount_fs()
 {
 	umount $TEST_DIR >&/dev/null
-	mount -t ldiskfs $TEST_DEV $TEST_DIR || __error "mount.ldiskfs failed"
+	mount -t $FSTYPE $TEST_DEV $TEST_DIR || __error "mount.ldiskfs failed"
+}
+
+function test_setup()
+{
+	umount $TEST_DEV >&/dev/null
+	if [ $FSTYPE = "ldiskfs" ];then
+		mkfs.lustre --fsname lustre --mdt --reformat --mgsnode=172.16.102.129@tcp \
+		$TEST_DEV >&/dev/null || __error "mkfs.lustre failed"
+	elif [ $FSTYPE = "ext4" ];then
+		mkfs.ext4 -F $TEST_DEV >&/dev/null || __error "Ext4 mkfs failed"
+	fi
 }
 
 function inode_ratio_test()
 {
 	factor=10
-	umount $TEST_DIR >&/dev/null
-	mkfs.lustre --fsname lustre --mdt --reformat --mgsnode=172.16.102.129@tcp $TEST_DEV \
-			 >&/dev/null || __error "mkfs.lustre failed"
+	test_setup
 	# get total inode numbers
 	total_inodes=`dumpe2fs $TEST_DEV -h 2> /dev/null | grep "Free inodes" | awk '{print $3}'`
 	increment=$(($total_inodes/10))
