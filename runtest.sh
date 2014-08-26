@@ -54,7 +54,7 @@ function test_setup()
 		mkfs.lustre --fsname lustre --mdt --reformat --mgsnode=172.16.102.129@tcp \
 		$TEST_DEV >&/dev/null || __error "mkfs.lustre failed"
 	elif [ $FSTYPE = "ext4" ];then
-		mkfs.ext4 -F $TEST_DEV >&/dev/null || __error "Ext4 mkfs failed"
+		mkfs.ext4 -F $TEST_DEV -i 2048 >&/dev/null || __error "Ext4 mkfs failed"
 	fi
 }
 
@@ -73,13 +73,30 @@ function inode_ratio_test()
 	do
 		let filled_number=$(($increment * $cnt))
 		remount_fs
-		echo $filled_number
 		#refill_inodes $filled_number
 
 		mkdir $TEST_DIR/mdtest""$cnt
-		echo "Mdtest with used inode: $(($cnt * 10))%:"
-		mpirun --allow-run-as-root  -np $THREAD_NR $MDTEST -d $TEST_DIR/mdtest""$cnt -n $this_number_test -C -i $NUMBER_TEST || exit 1
+		echo "##########################Mdtest create directory/file with used inode: $(($cnt * 10))%:"
+		# Only create directory/file for this step
+		mpirun --allow-run-as-root  -np $THREAD_NR $MDTEST -d $TEST_DIR/mdtest""$cnt -n $this_number_test -C -i $NUMBER_TEST || break
+
+		#Only stat director/file for this step.
+		remount_fs
+		echo "###########################Mdtest stat directory/file with used inode: $(($cnt * 10))%:"
+		mpirun --allow-run-as-root  -np $THREAD_NR $MDTEST -d $TEST_DIR/mdtest""$cnt -n $this_number_test \
+				-T -i $NUMBER_TEST || __error "stat should not fail"
 		((cnt++))
+	done
+
+	((cnt--))
+
+	while [ $cnt -ge 0 ]
+	do
+		remount_fs
+		echo "##########################Mdtest remove file/directoy with used inode: $(($cnt * 10))%:"
+		# Only remove directory/file for this step
+		mpirun --allow-run-as-root  -np $THREAD_NR $MDTEST -d $TEST_DIR/mdtest""$cnt -n $this_number_test -r -i $NUMBER_TEST || __error "fail remove"
+		((cnt--))
 	done
 }
 inode_ratio_test
